@@ -1,4 +1,10 @@
 import Database from 'better-sqlite3';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = 'https://your-supabase-url.supabase.co';
+const supabaseKey = 'your-anon-key';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Create a new database connection
 const db = new Database(':memory:'); // Using in-memory SQLite for Bolt.new compatibility
@@ -17,27 +23,33 @@ db.exec(`
 `);
 
 // Create a function to save leads
-export const saveLead = (lead: {
+export const saveLead = async (lead: {
   name: string;
   phone: string;
   cpf?: string;
   benefitType?: string;
   problemType?: string;
 }) => {
-  const stmt = db.prepare(`
-    INSERT INTO leads (name, phone, cpf, benefitType, problemType)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  
-  const info = stmt.run(
-    lead.name,
-    lead.phone,
-    lead.cpf || null,
-    lead.benefitType || null,
-    lead.problemType || null
-  );
-  
-  return info.lastInsertRowid;
+  // Insert lead into Supabase
+  const { data, error } = await supabase
+    .from('leads')
+    .insert([
+      {
+        name: lead.name,
+        phone: lead.phone,
+        cpf: lead.cpf || null,
+        benefitType: lead.benefitType || null,
+        problemType: lead.problemType || null,
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Error inserting lead: ${error.message}`);
+  }
+
+  return data;
 };
 
 // Create a function to get all leads
