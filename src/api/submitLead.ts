@@ -1,5 +1,4 @@
 import { DiagnosisFormData, MiniFormData } from '../lib/schema';
-import { saveLead } from '../lib/db';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://zeoedkujoirzpigpzylb.supabase.co';
