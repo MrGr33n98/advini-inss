@@ -36,8 +36,8 @@ export const submitDiagnosisForm = async (data: DiagnosisFormData) => {
         name: data.name,
         phone: data.phone,
         cpf: data.cpf,
-        benefitType: data.benefitType,
-        problemType: data.problemType
+        benefit_type: data.benefitType,      // <-- snake_case
+        problem_type: data.problemType       // <-- snake_case
       }])
       .select()
       .single();
