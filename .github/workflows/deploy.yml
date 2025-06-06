@@ -1,0 +1,31 @@
+name: Deploy to VM
+
+on:
+  push:
+    branches:
+      - main  # or your main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: SSH into VM and Deploy
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.VM_IP }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -e  # Exit immediately if a command exits with a non-zero status.
+            echo "Deploying to VM..."
+            cd /home/your_username/your_app
+            git config --global user.name "Your Name"  # Replace with your name
+            git config --global user.email "your_email@example.com"  # Replace with your email
+            git pull origin main
+            docker-compose up -d
+            echo "Deployment complete."
