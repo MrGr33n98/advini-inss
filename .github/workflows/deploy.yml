@@ -62,8 +62,10 @@ jobs:
             docker --version || (echo "Docker não está instalado!" && exit 1)
             
             echo ">>> Iniciando aplicação com Docker Compose..."
-            # Em novas versões do Docker, usa-se 'docker compose' (sem hífen)
             docker compose up -d --build
+
+            echo ">>> Verificando Nginx..."
+            sudo nginx -t && sudo systemctl reload nginx
             
             echo ">>> Deploy concluído com sucesso!"
 
