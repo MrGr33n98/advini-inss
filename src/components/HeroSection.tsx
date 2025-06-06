@@ -73,7 +73,7 @@ const HeroSection: React.FC = () => {
                 transition={{ delay: 0.3 }}
               >
                 <Users className="h-6 w-6 mr-2 text-primary-400" />
-                <span className="text-lg">+5.000 Aposentados Atendidos</span>
+                <span className="text-lg">+ R$ 6,3 bilhões desviados;</span>
               </motion.div>
               
               <motion.div 
