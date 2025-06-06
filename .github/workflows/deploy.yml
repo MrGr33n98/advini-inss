@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       # 2. Conecta na sua VM via SSH e executa o script de deploy
-      - name: SSH into VM and Deploy
+      - name: Deploy to VM
         uses: appleboy/ssh-action@v1.1.0
         with:
           # IP da sua VM, vindo dos segredos do GitHub
@@ -57,12 +57,12 @@ jobs:
             echo ">>> Configurando o Git..."
             git config --global user.name "Felipe Henrique"
             git config --global user.email "felipehhenriquee@gmail.com"
-            
+
             echo ">>> Verificando instalação do Docker..."
             docker --version || (echo "Docker não está instalado!" && exit 1)
             
             echo ">>> Iniciando aplicação com Docker Compose..."
-            # Use 'docker compose' em vez de 'docker-compose'
+            # Em novas versões do Docker, usa-se 'docker compose' (sem hífen)
             docker compose up -d --build
             
             echo ">>> Deploy concluído com sucesso!"
