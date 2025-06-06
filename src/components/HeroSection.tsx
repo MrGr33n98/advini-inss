@@ -83,7 +83,7 @@ const HeroSection: React.FC = () => {
                 transition={{ delay: 0.5 }}
               >
                 <TrendingUp className="h-6 w-6 mr-2 text-primary-400" />
-                <span className="text-lg">+12 Milhões Recuperados</span>
+                <span className="text-lg">+7  milhões foram lesados</span>
               </motion.div>
             </div>
             

@@ -57,15 +57,12 @@ jobs:
             echo ">>> Configurando o Git..."
             git config --global user.name "Felipe Henrique"
             git config --global user.email "felipehhenriquee@gmail.com"
-
             echo ">>> Verificando instalação do Docker..."
             docker --version || (echo "Docker não está instalado!" && exit 1)
             
             echo ">>> Iniciando aplicação com Docker Compose..."
             docker compose up -d --build
-
             echo ">>> Verificando Nginx..."
             sudo nginx -t && sudo systemctl reload nginx
             
             echo ">>> Deploy concluído com sucesso!"
-
