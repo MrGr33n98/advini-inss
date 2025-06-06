@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       # 2. Conecta na sua VM via SSH e executa o script de deploy
-      - name: SSH into VM and Deploy
+      - name: Deploy to VM
         uses: appleboy/ssh-action@v1.1.0
         with:
           # IP da sua VM, vindo dos segredos do GitHub
@@ -32,13 +32,35 @@ jobs:
           # Script que será executado na VM
           script: |
             set -e
-            echo "Deploying to VM..."
-            # Cria o diretório da aplicação se não existir
-            mkdir -p /home/***/advini-inss  # Substitua *** pelo seu nome de usuário
-            cd /home/***/advini-inss # Substitua *** pelo seu nome de usuário
-            git config --global user.name "Seu Nome"
-            git config --global user.email "seu_email@exemplo.com"
-            git pull origin main
-            docker compose up -d
-            echo "Deployment complete."
+            
+            # --- CONFIGURAÇÕES ---
+            # Diretório onde a aplicação será instalada na sua VM
+            APP_DIR="/home/felipe/advini-inss"
+            # URL do seu repositório Git
+            REPO_URL="https://github.com/MrGr33n98/advini-inss.git"
+            
+            echo ">>> Iniciando deploy para o diretório $APP_DIR"
+            
+            # Verifica se o diretório da aplicação já existe
+            if [ -d "$APP_DIR" ]; then
+              # Se existe, é uma ATUALIZAÇÃO
+              echo ">>> Aplicação existente encontrada. Atualizando..."
+              cd $APP_DIR
+              git pull origin main
+            else
+              # Se não existe, é o PRIMEIRO DEPLOY
+              echo ">>> Aplicação não encontrada. Clonando repositório..."
+              git clone $REPO_URL $APP_DIR
+              cd $APP_DIR
+            fi
+            
+            echo ">>> Configurando o Git..."
+            git config --global user.name "Felipe Henrique"
+            git config --global user.email "felipehhenriquee@gmail.com"
+            
+            echo ">>> Iniciando aplicação com Docker Compose..."
+            # --build garante que a imagem Docker será reconstruída se houver mudanças
+            docker-compose up -d --build
+            
+            echo ">>> Deploy concluído com sucesso!"
 
