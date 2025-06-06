@@ -32,13 +32,32 @@ jobs:
           # Script que será executado na VM
           script: |
             set -e
-            echo "Deploying to VM..."
-            # Cria o diretório da aplicação se não existir
-            mkdir -p /home/***/advini-inss  # Substitua *** pelo seu nome de usuário
-            cd /home/***/advini-inss # Substitua *** pelo seu nome de usuário
-            git config --global user.name "Seu Nome"
-            git config --global user.email "seu_email@exemplo.com"
-            git pull origin main
+            echo ">>> Iniciando deploy para o diretório /home/felipe/advini-inss"
+            # Criar o diretório da aplicação se não existir
+            mkdir -p /home/felipe/advini-inss
+            cd /home/felipe/advini-inss
+            
+            # Verificar se o repositório já está clonado
+            if [ -d ".git" ]; then
+              echo ">>> Aplicação existente encontrada. Atualizando..."
+              git pull origin main
+            else
+              echo ">>> Aplicação não encontrada. Clonando repositório..."
+              git clone https://github.com/MrGr33n98/advini-inss.git .
+            fi
+            
+            echo ">>> Configurando o Git..."
+            git config --global user.name "Felipe Henrique"
+            git config --global user.email "felipehhenriquee@gmail.com"
+            
+            echo ">>> Verificando arquivo docker-compose.yml..."
+            if [ ! -f docker-compose.yml ]; then
+              echo "Erro: docker-compose.yml não encontrado!"
+              exit 1
+            fi
+            
+            echo ">>> Iniciando aplicação com Docker Compose..."
+            # Use 'docker compose' em vez de 'docker-compose'
             docker compose up -d
-            echo "Deployment complete."
+            echo ">>> Deployment concluído com sucesso!"
 
