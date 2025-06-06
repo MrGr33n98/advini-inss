@@ -1,40 +1,51 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, X, Calculator, HelpCircle, Download, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, X, Calculator, HelpCircle, Download, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { pdfjs } from 'react-pdf';
+import FraudDetector from './FraudDetector';
 
-// Interface unificada para os dados do formulário
-interface FullFormData {
-  // Dados de lead
+// ---------- Funções Utilitárias ----------
+export const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('pt-BR').format(date);
+};
+
+export const formatCurrency = (num: number): string => {
+    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+// ---------- Interfaces ----------
+export interface FullFormData {
   leadName: string;
   leadEmail: string;
   leadPhone: string;
-  // Dados de cálculo
   benefitType: string;
   benefitNumber: string;
-  // Parcelas
-  parcels: {
-    id: string;
-    date: string;
-    value: string;
-  }[];
-  // Reajuste
+  parcels: { id: string; date: string; value: string }[];
   correctionIndex: string;
   interest: string;
   doubleRestitution: boolean;
-  // Resultado
   calculatedValue: number;
 }
 
-// Componente Tooltip reutilizável
-const Tooltip: React.FC<{content: string | React.ReactNode, children: React.ReactNode}> = ({ content, children }) => {
+interface TooltipProps {
+  content: string | React.ReactNode;
+  children: React.ReactNode;
+}
+
+interface DeductionItem {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+// ---------- Componentes Auxiliares ----------
+const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
   const [show, setShow] = useState(false);
   
   return (
     <div className="relative inline-block">
-      <div 
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-      >
+      <div onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
         {children}
       </div>
       {show && (
@@ -46,21 +57,295 @@ const Tooltip: React.FC<{content: string | React.ReactNode, children: React.Reac
   );
 };
 
-// Componente principal CalculatorForm
+// Configuração do worker do PDF.js
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
+const FutureValueSimulator: React.FC<{ initialValue: number }> = ({ initialValue }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [interestRate, setInterestRate] = useState(1);
+  const [timeframe, setTimeframe] = useState(24);
+  const [simulationType, setSimulationType] = useState<'judicial'|'administrative'>('judicial');
+
+  const projections = useMemo(() => {
+    const results = [];
+    let currentValue = initialValue;
+    if (simulationType === 'judicial') {
+      currentValue *= 1.2;
+    }
+    for (let month = 6; month <= timeframe; month += 6) {
+      const monthlyRate = interestRate / 100;
+      currentValue *= Math.pow(1 + monthlyRate, 6);
+      results.push({ month, value: currentValue });
+    }
+    return results;
+  }, [initialValue, interestRate, timeframe, simulationType]);
+  
+  return (
+    <div className="border rounded-lg overflow-hidden transition-all duration-300 mt-6">
+      <div 
+        className="bg-gray-50 p-3 cursor-pointer flex justify-between items-center"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <Calculator className="text-primary-600 w-5 h-5" />
+          <h3 className="font-medium text-gray-700">Simulador de Valor Futuro</h3>
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="w-5 h-5 text-gray-500" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-gray-500" />
+        )}
+      </div>
+      
+      {isExpanded && (
+        <div className="p-4">
+          <p className="text-sm text-gray-600 mb-4">
+            Simule quanto seu processo de restituição pode valer ao longo do tempo, considerando juros e tipo de processo.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="interestRate">
+                Taxa de juros mensal (%)
+              </label>
+              <input
+                type="range"
+                id="interestRate"
+                min="0.1"
+                max="3"
+                step="0.1"
+                value={interestRate}
+                onChange={(e) => setInterestRate(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-600 mt-1">
+                <span>0,1%</span>
+                <span>{interestRate.toFixed(1)}%</span>
+                <span>3,0%</span>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="timeframe">
+                Prazo (meses)
+              </label>
+              <input
+                type="range"
+                id="timeframe"
+                min="6"
+                max="60"
+                step="6"
+                value={timeframe}
+                onChange={(e) => setTimeframe(parseInt(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-600 mt-1">
+                <span>6 meses</span>
+                <span>{timeframe} meses</span>
+                <span>60 meses</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de processo
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                className={`p-2 text-sm rounded-md border ${
+                  simulationType === 'judicial' 
+                    ? 'bg-primary-50 border-primary-300 text-primary-700' 
+                    : 'bg-white border-gray-300 text-gray-700'
+                }`}
+                onClick={() => setSimulationType('judicial')}
+              >
+                Judicial
+              </button>
+              <button 
+                className={`p-2 text-sm rounded-md border ${
+                  simulationType === 'administrative' 
+                    ? 'bg-primary-50 border-primary-300 text-primary-700' 
+                    : 'bg-white border-gray-300 text-gray-700'
+                }`}
+                onClick={() => setSimulationType('administrative')}
+              >
+                Administrativo
+              </button>
+            </div>
+          </div>
+          
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Projeção de valores</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr>
+                    <th className="py-2 text-left text-xs font-medium text-gray-500 tracking-wider">Período</th>
+                    <th className="py-2 text-right text-xs font-medium text-gray-500 tracking-wider">Valor estimado</th>
+                    <th className="py-2 text-right text-xs font-medium text-gray-500 tracking-wider">Aumento</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  <tr>
+                    <td className="py-2 text-sm text-gray-700">Inicial</td>
+                    <td className="py-2 text-sm text-right font-medium text-gray-900">
+                      {formatCurrency(initialValue)}
+                    </td>
+                    <td className="py-2 text-sm text-right text-gray-500">-</td>
+                  </tr>
+                  {projections.map((item, index) => {
+                    const previousValue = index === 0 ? initialValue : projections[index-1].value;
+                    const increase = ((item.value / previousValue) - 1) * 100;
+                    
+                    return (
+                      <tr key={`month-${item.month}`} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                        <td className="py-2 text-sm text-gray-700">{item.month} meses</td>
+                        <td className="py-2 text-sm text-right font-medium text-primary-700">
+                          {formatCurrency(item.value)}
+                        </td>
+                        <td className="py-2 text-sm text-right text-green-600">
+                          +{increase.toFixed(1)}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 italic">
+              Esta simulação é meramente ilustrativa e não constitui promessa de resultado.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DocumentsHelper: React.FC = () => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const documents = [
+    {
+      id: 'petition-sample',
+      title: 'Modelo de Petição Inicial',
+      description: 'Petição base para processo de restituição de valores descontados indevidamente.',
+      type: 'doc',
+      size: '32 KB'
+    },
+    {
+      id: 'power-attorney',
+      title: 'Procuração',
+      description: 'Modelo de procuração para representação do beneficiário no processo.',
+      type: 'doc',
+      size: '18 KB'
+    },
+    {
+      id: 'law-references',
+      title: 'Referências Legais',
+      description: 'Compilação das leis e jurisprudência sobre descontos indevidos no INSS.',
+      type: 'pdf',
+      size: '156 KB' 
+    },
+    {
+      id: 'checklist',
+      title: 'Checklist de Documentos',
+      description: 'Lista de documentos necessários para ingressar com o processo.',
+      type: 'pdf',
+      size: '42 KB'
+    },
+  ];
+  
+  return (
+    <div className="border rounded-lg overflow-hidden transition-all duration-300 mt-6">
+      <div 
+        className="bg-gray-50 p-3 cursor-pointer flex justify-between items-center"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <FileText className="text-primary-600 w-5 h-5" />
+          <h3 className="font-medium text-gray-700">Documentos e Modelos</h3>
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="w-5 h-5 text-gray-500" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-gray-500" />
+        )}
+      </div>
+      {isExpanded && (
+        <div className="p-4">
+          <p className="text-sm text-gray-600 mb-4">
+            Documentos úteis para dar seguimento ao seu processo de restituição de valores.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {documents.map(doc => (
+              <div 
+                key={doc.id}
+                className="border rounded-lg p-3 hover:border-primary-300 hover:bg-gray-50 transition-colors duration-200"
+              >
+                <div className="flex justify-between items-start">
+                  <h4 className="text-sm font-medium text-gray-800">{doc.title}</h4>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    doc.type === 'pdf' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {doc.type.toUpperCase()}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1 mb-3">{doc.description}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-400">{doc.size}</span>
+                  <button className="text-primary-600 hover:text-primary-800 text-sm flex items-center gap-1">
+                    <Download className="w-3 h-3" />
+                    Baixar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-700">Precisa de ajuda personalizada?</h4>
+            <p className="text-xs text-blue-600 mt-1">
+              Nossa equipe pode preparar documentos específicos para o seu caso e aumentar suas chances de sucesso.
+            </p>
+            <button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm py-1.5 px-3 rounded transition-colors duration-200">
+              Falar com um Especialista
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ---------- Componente Principal ----------
 const CalculatorForm: React.FC = () => {
+  // Estados de exibição
   const [showCalculator, setShowCalculator] = useState(false);
   const [showLeadModal, setShowLeadModal] = useState(false);
+  const [showFraudDetector, setShowFraudDetector] = useState(false);
+  
+  // Controle de passos e loading
   const [currentStep, setCurrentStep] = useState(1);
   const [isCalculating, setIsCalculating] = useState(false);
+  
+  // Estados para erros, formulários e fraudes
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [detectedDeductions, setDetectedDeductions] = useState<DeductionItem[]>([]);
+  
+  // Refs para acessibilidade
   const modalRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Para o Step2
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Estados específicos de step
   const [newDate, setNewDate] = useState('');
   const [newValue, setNewValue] = useState('');
   const [parcelError, setParcelError] = useState('');
-
+  
+  // Estado central do formulário
   const initialFormData: FullFormData = {
     leadName: '',
     leadEmail: '',
@@ -73,74 +358,52 @@ const CalculatorForm: React.FC = () => {
     doubleRestitution: false,
     calculatedValue: 2735.48
   };
-
   const [formData, setFormData] = useState<FullFormData>(initialFormData);
-
-  // Funções auxiliares
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return new Intl.DateTimeFormat('pt-BR').format(date);
-  };
-
-  const formatCurrency = (num: number) => {
-    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
-
-  const getInterestRate = () => {
-    const interestValue = parseFloat(formData.interest.replace(',', '.'));
-    return isNaN(interestValue) ? 0 : interestValue;
-  };
   
-  // Calcular valor total das parcelas
-  const totalValue = formData.parcels.reduce((acc, parcel) => {
-    return acc + parseFloat(parcel.value.replace(',', '.'));
-  }, 0);
+  // Lista de entidades suspeitas (exemplo)
+  const suspiciousEntities = [
+    { name: "Ambec", amount: 1500 },
+    { name: "Sindnapi/FS", amount: 1200 },
+    { name: "AAPB", amount: 800 },
+    { name: "Aapen", amount: 900 },
+    { name: "Contag", amount: 600 }
+  ];
 
-  // Gerenciar pressionar ESC para fechar modal
+  // Capturar teclas para fechar modal
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showLeadModal) {
-        closeLeadModal();
-      }
+      if (e.key === 'Escape' && showLeadModal) closeLeadModal();
     };
-    
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [showLeadModal]);
 
-  // Foco no modal quando abrir
+  // Focar no primeiro input quando o modal abre
   useEffect(() => {
     if (showLeadModal && modalRef.current) {
       const firstInput = modalRef.current.querySelector('input');
-      if (firstInput) {
-        (firstInput as HTMLInputElement).focus();
-      }
+      firstInput && (firstInput as HTMLInputElement).focus();
     }
   }, [showLeadModal]);
 
+  // Atualização do formulário
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    });
-    
-    // Limpar erro do campo quando for preenchido
+    }));
     if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: ''
-      });
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
+  // Adicionar parcela
   const addParcel = () => {
     if (!newDate || !newValue) {
       setParcelError('Preencha a data e o valor da parcela');
       return;
     }
-
-    // Validar data (não pode ser futura)
     const selectedDate = new Date(newDate);
     if (isNaN(selectedDate.getTime())) {
       setParcelError('Data inválida');
@@ -150,71 +413,39 @@ const CalculatorForm: React.FC = () => {
       setParcelError('A data não pode ser futura');
       return;
     }
-
-    // Validar valor
     const valueNumber = parseFloat(newValue.replace(',', '.'));
     if (isNaN(valueNumber) || valueNumber <= 0) {
       setParcelError('Valor inválido. Insira um número positivo');
       return;
     }
-
-    // Adicionar parcela
     const updatedParcels = [
       ...formData.parcels,
-      {
-        id: String(Date.now()),
-        date: newDate,
-        value: newValue
-      }
+      { id: String(Date.now()), date: newDate, value: newValue }
     ];
-
-    setFormData({
-      ...formData,
-      parcels: updatedParcels
-    });
+    setFormData(prev => ({ ...prev, parcels: updatedParcels }));
     setNewDate('');
     setNewValue('');
     setParcelError('');
   };
 
   const removeParcel = (id: string) => {
-    const updatedParcels = formData.parcels.filter(parcel => parcel.id !== id);
-    setFormData({
-      ...formData,
-      parcels: updatedParcels
-    });
+    setFormData(prev => ({ ...prev, parcels: prev.parcels.filter(p => p.id !== id) }));
   };
 
-  const openLeadModal = () => {
-    setShowLeadModal(true);
-  };
-
+  // Abertura e fechamento do modal
+  const openLeadModal = () => setShowLeadModal(true);
   const closeLeadModal = () => {
     setShowLeadModal(false);
-    if (buttonRef.current) {
-      buttonRef.current.focus();
-    }
+    buttonRef.current?.focus();
   };
 
+  // Validações por etapa
   const validateStep1 = (): boolean => {
     const stepErrors: Record<string, string> = {};
-    
-    if (!formData.leadName) {
-      stepErrors.leadName = 'Nome é obrigatório';
-    }
-    
-    if (!formData.leadPhone) {
-      stepErrors.leadPhone = 'Telefone é obrigatório';
-    }
-    
-    if (!formData.benefitType) {
-      stepErrors.benefitType = 'Tipo de benefício é obrigatório';
-    }
-    
-    if (!formData.benefitNumber) {
-      stepErrors.benefitNumber = 'Número do benefício é obrigatório';
-    }
-    
+    if (!formData.leadName) stepErrors.leadName = 'Nome é obrigatório';
+    if (!formData.leadPhone) stepErrors.leadPhone = 'Telefone é obrigatório';
+    if (!formData.benefitType) stepErrors.benefitType = 'Tipo de benefício é obrigatório';
+    if (!formData.benefitNumber) stepErrors.benefitNumber = 'Número do benefício é obrigatório';
     setErrors(stepErrors);
     return Object.keys(stepErrors).length === 0;
   };
@@ -237,70 +468,33 @@ const CalculatorForm: React.FC = () => {
 
   const submitLeadForm = (e: React.FormEvent) => {
     e.preventDefault();
-    
     const newErrors: Record<string, string> = {};
-    
-    if (!formData.leadName) {
-      newErrors.leadName = 'Nome é obrigatório';
-    }
-    
-    if (!formData.leadEmail) {
-      newErrors.leadEmail = 'Email é obrigatório';
-    } else if (!/\S+@\S+\.\S+/.test(formData.leadEmail)) {
-      newErrors.leadEmail = 'Email inválido';
-    }
-    
-    if (!formData.leadPhone) {
-      newErrors.leadPhone = 'Telefone é obrigatório';
-    }
-    
+    if (!formData.leadName) newErrors.leadName = 'Nome é obrigatório';
+    if (!formData.leadEmail) newErrors.leadEmail = 'Email é obrigatório';
+    else if (!/\S+@\S+\.\S+/.test(formData.leadEmail)) newErrors.leadEmail = 'Email inválido';
+    if (!formData.leadPhone) newErrors.leadPhone = 'Telefone é obrigatório';
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
-    console.log("Dados do lead coletados:", {
-      nome: formData.leadName,
-      email: formData.leadEmail,
-      telefone: formData.leadPhone
-    });
-    
+    console.log("Dados do lead coletados:", { nome: formData.leadName, email: formData.leadEmail, telefone: formData.leadPhone });
     setShowLeadModal(false);
     setShowCalculator(true);
   };
 
   const nextStep = () => {
-    let isValid = false;
-    
-    switch (currentStep) {
-      case 1:
-        isValid = validateStep1();
-        break;
-      case 2:
-        isValid = validateStep2();
-        break;
-      case 3:
-        isValid = validateStep3();
-        break;
-      default:
-        isValid = true;
-    }
-    
-    if (isValid) {
-      setCurrentStep(prev => Math.min(prev + 1, 4));
-    }
+    let valid = false;
+    if (currentStep === 1) valid = validateStep1();
+    else if (currentStep === 2) valid = validateStep2();
+    else if (currentStep === 3) valid = validateStep3();
+    if (valid) setCurrentStep(prev => Math.min(prev + 1, 4));
   };
 
-  const prevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
-  };
+  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
   const calculateResult = () => {
     if (!validateStep3()) return;
-    
-    // Simular cálculo com loading
     setIsCalculating(true);
-    
     setTimeout(() => {
       setIsCalculating(false);
       setCurrentStep(4);
@@ -312,35 +506,37 @@ const CalculatorForm: React.FC = () => {
     setCurrentStep(1);
   };
 
-  // Calcular valor estimado com base nas parcelas, índice e juros
-  const calculateEstimate = () => {
+  // Cálculo do valor estimado baseado nas parcelas, índice e juros
+  const getInterestRate = (): number => {
+    const rate = parseFloat(formData.interest.replace(',', '.'));
+    return isNaN(rate) ? 0 : rate;
+  };
+
+  const totalValue = formData.parcels.reduce((acc, parcel) => acc + parseFloat(parcel.value.replace(',', '.')), 0);
+
+  const calculateEstimate = (): number => {
     if (!formData.correctionIndex || formData.parcels.length === 0) return 0;
-    
-    const totalParcels = formData.parcels.reduce((acc, parcel) => {
-      return acc + parseFloat(parcel.value.replace(',', '.'));
-    }, 0);
-    
+    const totalParcels = totalValue;
     const indexRate = formData.correctionIndex === 'ipca' ? 4.40 / 100 : 3.80 / 100;
     const interestRate = getInterestRate() / 100;
-    
     let estimate = totalParcels * (1 + indexRate);
-    estimate = estimate * (1 + interestRate);
-    
-    if (formData.doubleRestitution) {
-      estimate *= 2;
-    }
-    
+    estimate *= (1 + interestRate);
+    if (formData.doubleRestitution) estimate *= 2;
     return estimate;
   };
 
   const estimatedValue = calculateEstimate();
 
-  // Verificar se pode avançar para os próximos passos
   const canGoToStep2 = formData.leadName && formData.leadPhone && formData.benefitType && formData.benefitNumber;
   const canGoToStep3 = formData.parcels.length > 0;
   const canCalculate = formData.correctionIndex !== '';
 
-  // Se não estiver mostrando a calculadora, mostrar apenas o botão para abrir o modal
+  // Handler para atualizações do detector de fraudes (se necessário)
+  const handleDetectionsComplete = (deductions: DeductionItem[]) => {
+    setDetectedDeductions(deductions);
+  };
+
+  // Se não estiver mostrando a calculadora, exibir somente o botão de abertura do modal
   if (!showCalculator) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
@@ -486,7 +682,27 @@ const CalculatorForm: React.FC = () => {
     );
   }
 
-  // Calculadora principal
+  // Se o detector de fraudes estiver ativo
+  if (showFraudDetector) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-5 max-w-2xl mx-auto">
+        <div className="mb-5 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-secondary-800">Detector de Fraudes</h2>
+          <button 
+            onClick={() => setShowFraudDetector(false)}
+            className="text-sm text-primary-600 hover:text-primary-800 flex items-center gap-1"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar à Calculadora
+          </button>
+        </div>
+        
+        <FraudDetector onDetectionsComplete={handleDetectionsComplete} />
+      </div>
+    );
+  }
+
+  // Resto da calculadora
   return (
     <div className="bg-white rounded-lg shadow-md p-5 max-w-2xl mx-auto" id="calculadora">
       <div className="mb-5">
@@ -495,51 +711,23 @@ const CalculatorForm: React.FC = () => {
           Olá {formData.leadName}, descubra quanto você pode recuperar dos descontos indevidos.
         </p>
       </div>
-
-      {/* NOVO INDICADOR DE PROGRESSO (STEPPER) - CORRIGIDO */}
-      {/* Primeira linha: círculos + barras */}
+      {/* Stepper */}
       <div className="flex items-center mb-2">
         {[1, 2, 3, 4].map((step, idx, arr) => (
           <React.Fragment key={step}>
-            {/* Círculo numerado */}
-            <div className={`
-                flex items-center justify-center 
-                w-8 h-8 rounded-full 
-                ${currentStep >= step 
-                  ? 'bg-primary-600 text-white' 
-                  : 'bg-gray-200 text-gray-500'}
-                transition-colors duration-200
-              `}
-            >
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep >= step ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'} transition-colors duration-200`}>
               {step}
             </div>
-            
-            {/* Se não for o último, desenhar a barra entre este círculo e o próximo */}
             {idx < arr.length - 1 && (
-              <div className={`
-                  flex-1 h-1 
-                  ${currentStep > step 
-                    ? 'bg-primary-500' 
-                    : 'bg-gray-200'}
-                  transition-colors duration-200
-                `}
-              />
+              <div className={`flex-1 h-1 ${currentStep > step ? 'bg-primary-500' : 'bg-gray-200'} transition-colors duration-200`} />
             )}
           </React.Fragment>
         ))}
       </div>
-
-      {/* Segunda linha: rótulos textuais de cada passo */}
       <div className="flex items-center mb-6">
         {[1, 2, 3, 4].map(step => (
           <div key={step} className="flex-1 text-center">
-            <span className={`
-              text-xs block 
-              ${currentStep === step 
-                ? 'text-primary-600 font-medium' 
-                : 'text-gray-500'}
-              transition-colors duration-200
-            `}>
+            <span className={`text-xs block ${currentStep === step ? 'text-primary-600 font-medium' : 'text-gray-500'} transition-colors duration-200`}>
               {step === 1 && "Dados"}
               {step === 2 && "Parcelas"}
               {step === 3 && "Reajuste"}
@@ -548,20 +736,12 @@ const CalculatorForm: React.FC = () => {
           </div>
         ))}
       </div>
-
-      {/* Conteúdo dos passos */}
-      <motion.div
-        className="py-4"
-        initial={{ y: 10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        key={currentStep}
-        transition={{ duration: 0.3 }}
-      >
+      <motion.div className="py-4" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} key={currentStep} transition={{ duration: 0.3 }}>
         {currentStep === 1 && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="leadName">
+                <label htmlFor="leadName" className="block text-sm font-medium text-gray-700 mb-1">
                   Nome completo <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -570,16 +750,14 @@ const CalculatorForm: React.FC = () => {
                   name="leadName"
                   value={formData.leadName}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                    errors.leadName ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${errors.leadName ? 'border-red-500' : 'border-gray-300'}`}
                   required
                 />
                 {errors.leadName && <p className="text-red-500 text-xs mt-1">{errors.leadName}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="leadPhone">
+                <label htmlFor="leadPhone" className="block text-sm font-medium text-gray-700 mb-1">
                   Telefone <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -588,10 +766,8 @@ const CalculatorForm: React.FC = () => {
                   name="leadPhone"
                   value={formData.leadPhone}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                    errors.leadPhone ? 'border-red-500' : 'border-gray-300'
-                  }`}
                   placeholder="(00) 00000-0000"
+                  className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${errors.leadPhone ? 'border-red-500' : 'border-gray-300'}`}
                   required
                 />
                 {errors.leadPhone && <p className="text-red-500 text-xs mt-1">{errors.leadPhone}</p>}
@@ -599,7 +775,7 @@ const CalculatorForm: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="benefitType">
+              <label htmlFor="benefitType" className="block text-sm font-medium text-gray-700 mb-1">
                 Tipo de benefício <span className="text-red-500">*</span>
               </label>
               <select
@@ -607,9 +783,7 @@ const CalculatorForm: React.FC = () => {
                 name="benefitType"
                 value={formData.benefitType}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  errors.benefitType ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${errors.benefitType ? 'border-red-500' : 'border-gray-300'}`}
                 required
               >
                 <option value="">Selecione o tipo</option>
@@ -623,7 +797,7 @@ const CalculatorForm: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="benefitNumber">
+              <label htmlFor="benefitNumber" className="block text-sm font-medium text-gray-700 mb-1">
                 Nº do benefício <span className="text-red-500">*</span>
               </label>
               <input
@@ -632,10 +806,8 @@ const CalculatorForm: React.FC = () => {
                 name="benefitNumber"
                 value={formData.benefitNumber}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  errors.benefitNumber ? 'border-red-500' : 'border-gray-300'
-                }`}
                 placeholder="000.000.000-0"
+                className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${errors.benefitNumber ? 'border-red-500' : 'border-gray-300'}`}
                 required
               />
               {errors.benefitNumber && <p className="text-red-500 text-xs mt-1">{errors.benefitNumber}</p>}
@@ -729,14 +901,11 @@ const CalculatorForm: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center mb-1">
-                  <label className="text-sm font-medium text-gray-700" htmlFor="correctionIndex">
+                  <label htmlFor="correctionIndex" className="text-sm font-medium text-gray-700">
                     Índice de correção <span className="text-red-500">*</span>
                   </label>
-                  <Tooltip content={`
-                    IPCA: Índice de Preços ao Consumidor Amplo, usado para corrigir valores monetários pela inflação oficial.
-                    
-                    IGPM: Índice Geral de Preços do Mercado, geralmente usado em contratos de aluguel e financeiros.
-                  `}>
+                  <Tooltip content={`IPCA: Corrige valores pela inflação oficial.
+IGPM: Usado em contratos financeiros e de aluguel.`}>
                     <HelpCircle className="w-4 h-4 ml-1 text-gray-400 hover:text-gray-600 cursor-pointer" />
                   </Tooltip>
                 </div>
@@ -745,9 +914,7 @@ const CalculatorForm: React.FC = () => {
                   name="correctionIndex"
                   value={formData.correctionIndex}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                    errors.correctionIndex ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${errors.correctionIndex ? 'border-red-500' : 'border-gray-300'}`}
                   required
                 >
                   <option value="">Selecione o índice</option>
@@ -756,9 +923,8 @@ const CalculatorForm: React.FC = () => {
                 </select>
                 {errors.correctionIndex && <p className="text-red-500 text-xs mt-1">{errors.correctionIndex}</p>}
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="interest">
+                <label htmlFor="interest" className="block text-sm font-medium text-gray-700 mb-1">
                   Juros (%)
                 </label>
                 <input
@@ -772,7 +938,6 @@ const CalculatorForm: React.FC = () => {
                 />
               </div>
             </div>
-
             <div className="mt-4">
               <label className="flex items-center">
                 <input
@@ -787,10 +952,9 @@ const CalculatorForm: React.FC = () => {
                 </span>
               </label>
               <p className="mt-1 text-xs text-gray-500 ml-6">
-                Ao marcar esta opção, o sistema aplicará o cálculo considerando multa em dobro conforme legislação vigente.
+                O cálculo considerará multa em dobro conforme legislação vigente.
               </p>
             </div>
-
             {formData.correctionIndex && formData.parcels.length > 0 && (
               <div className="mt-4 p-3 bg-gray-50 border rounded">
                 <h4 className="text-sm font-medium text-gray-700">Pré-visualização do reajuste</h4>
@@ -800,7 +964,7 @@ const CalculatorForm: React.FC = () => {
                   {formData.doubleRestitution && ' + Restituição em dobro'}
                 </p>
                 <p className="text-sm font-medium text-primary-700 mt-2">
-                  Estimativa: R$ {estimatedValue.toFixed(2).replace('.', ',')}
+                  Estimativa: {formatCurrency(estimatedValue)}
                 </p>
               </div>
             )}
@@ -815,7 +979,6 @@ const CalculatorForm: React.FC = () => {
                 {formatCurrency(formData.calculatedValue)}
               </p>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="group bg-gray-100 hover:bg-gray-200 p-4 rounded-lg transition-colors duration-200 text-center">
                 <h3 className="font-medium text-secondary-700 mb-3 text-sm">
@@ -826,7 +989,6 @@ const CalculatorForm: React.FC = () => {
                   Baixar relatório PDF
                 </button>
               </div>
-
               <div className="group bg-gray-100 hover:bg-gray-200 p-4 rounded-lg transition-colors duration-200 text-center">
                 <h3 className="font-medium text-secondary-700 mb-3 text-sm">
                   Documentação
@@ -837,7 +999,6 @@ const CalculatorForm: React.FC = () => {
                 </button>
               </div>
             </div>
-
             <div className="mt-6 text-center">
               <button
                 type="button"
@@ -846,7 +1007,6 @@ const CalculatorForm: React.FC = () => {
               >
                 Fazer novo cálculo
               </button>
-
               <div className="mt-4 p-4 bg-gray-50 rounded-lg max-w-sm mx-auto">
                 <p className="text-sm text-gray-700">
                   Precisa de ajuda com sua restituição?
@@ -862,8 +1022,6 @@ const CalculatorForm: React.FC = () => {
           </div>
         )}
       </motion.div>
-
-      {/* Botões de navegação - com estilos disabled melhorados */}
       {currentStep !== 4 && (
         <div className="flex justify-between mt-6 pt-4 border-t">
           {currentStep > 1 ? (
@@ -878,7 +1036,6 @@ const CalculatorForm: React.FC = () => {
           ) : (
             <div></div>
           )}
-          
           {currentStep < 4 && (
             currentStep === 3 ? (
               <button
@@ -886,7 +1043,7 @@ const CalculatorForm: React.FC = () => {
                 onClick={calculateResult}
                 disabled={!canCalculate || isCalculating}
                 className={`flex items-center justify-center gap-2 bg-primary-600 text-white py-2 px-6 rounded h-10 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  (!canCalculate || isCalculating) ? 'opacity-50 cursor-not-allowed hover:bg-primary-600' : 'hover:bg-primary-700'
+                  (!canCalculate || isCalculating) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-700'
                 }`}
               >
                 {isCalculating ? (
@@ -905,10 +1062,10 @@ const CalculatorForm: React.FC = () => {
               <button
                 type="button"
                 onClick={nextStep}
-                disabled={currentStep === 1 ? !canGoToStep2 : currentStep === 2 ? !canGoToStep3 : false}
+                disabled={currentStep === 1 ? !canGoToStep2 : (currentStep === 2 ? !canGoToStep3 : false)}
                 className={`flex items-center gap-2 bg-primary-600 text-white py-2 px-6 rounded h-10 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  (currentStep === 1 && !canGoToStep2) || (currentStep === 2 && !canGoToStep3) 
-                    ? 'opacity-50 cursor-not-allowed hover:bg-primary-600' 
+                  (currentStep === 1 && !canGoToStep2) || (currentStep === 2 && !canGoToStep3)
+                    ? 'opacity-50 cursor-not-allowed'
                     : 'hover:bg-primary-700'
                 }`}
               >
@@ -919,6 +1076,8 @@ const CalculatorForm: React.FC = () => {
           )}
         </div>
       )}
+      <FutureValueSimulator initialValue={formData.calculatedValue} />
+      <DocumentsHelper />
     </div>
   );
 };
