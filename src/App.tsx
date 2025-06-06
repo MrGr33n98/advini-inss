@@ -9,6 +9,7 @@ import FAQSection from './components/FAQSection';
 import LawyerProfiles from './components/LawyerProfiles';
 import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
+import CalculatorForm from './components/Calculator/CalculatorForm';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <HeroSection />
         <TrustBadges />
         <HowItWorks />
+        <CalculatorForm />
         <VideoSection />
         <BlogPreview />
         <FAQSection />
