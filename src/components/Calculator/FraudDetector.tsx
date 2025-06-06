@@ -107,6 +107,37 @@ const FraudDetector: React.FC<FraudDetectorProps> = ({ onDetectionsComplete }) =
           )}
         </div>
       </div>
+      
+      {/* Seção do especialista com foto circular */}
+      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+        <div className="flex items-center space-x-4">
+          {/* Foto do especialista em formato circular */}
+          <div className="flex-shrink-0">
+            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-300 shadow-md">
+              <img 
+                src="/img4.jpg" 
+                alt="Especialista em restituição"
+                onError={(e) => {
+                  e.currentTarget.src = "https://via.placeholder.com/150";
+                  e.currentTarget.onerror = null;
+                }}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+          
+          {/* Texto de ajuda personalizada */}
+          <div className="flex-1">
+            <h4 className="text-sm font-medium text-blue-800">Precisa de ajuda personalizada?</h4>
+            <p className="text-xs text-blue-600 mt-1">
+              Nossa equipe pode preparar documentos específicos para o seu caso e aumentar suas chances de sucesso.
+            </p>
+            <button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs py-1.5 px-3 rounded transition-colors duration-200">
+              Falar com nosso especialista
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

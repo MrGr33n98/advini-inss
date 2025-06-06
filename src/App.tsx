@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'; // Adicione esta linha!
 import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import TrustBadges from './components/TrustBadges';

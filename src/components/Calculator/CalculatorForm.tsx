@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, X, Calculator, HelpCircle, Download, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { pdfjs } from 'react-pdf';
 import FraudDetector from './FraudDetector';
+import especialistaImg from '../../../public/img4.jpg'; // Ajuste o caminho se necessário
 
 // ---------- Funções Utilitárias ----------
 export const formatDate = (dateStr: string): string => {
@@ -1007,16 +1008,33 @@ IGPM: Usado em contratos financeiros e de aluguel.`}>
               >
                 Fazer novo cálculo
               </button>
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg max-w-sm mx-auto">
-                <p className="text-sm text-gray-700">
-                  Precisa de ajuda com sua restituição?
-                </p>
-                <a
-                  href="#contato"
-                  className="mt-2 inline-block bg-secondary-600 hover:bg-secondary-700 text-white text-sm py-2 px-4 rounded-md transition-colors duration-200"
-                >
-                  Agendar consulta com especialista
-                </a>
+              
+              {/* Card do especialista com destaque - substitui o card simples anterior */}
+              <div className="mt-6 bg-blue-50 border border-blue-100 rounded-lg p-4 max-w-md mx-auto">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-300 shadow-md">
+                      <img 
+                        src={especialistaImg}
+                        alt="Especialista em restituição"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 text-left">
+                    <h4 className="text-sm font-medium text-blue-800">Precisa de ajuda com sua restituição?</h4>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Nossa equipe pode preparar documentos específicos para o seu caso e aumentar suas chances de sucesso.
+                    </p>
+                    <a
+                      href="#contato"
+                      className="mt-2 inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm py-1.5 px-3 rounded transition-colors duration-200"
+                    >
+                      Agendar consulta com especialista
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1078,6 +1096,36 @@ IGPM: Usado em contratos financeiros e de aluguel.`}>
       )}
       <FutureValueSimulator initialValue={formData.calculatedValue} />
       <DocumentsHelper />
+      {currentStep === 4 && (
+        <div className="mt-6">
+          {/* Seção do especialista com foto circular */}
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <div className="flex items-center space-x-4">
+              {/* Foto do especialista em formato circular */}
+              <div className="flex-shrink-0">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-blue-300 shadow-md">
+                  <img 
+                    src={especialistaImg}
+                    alt="Especialista em restituição"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+              
+              {/* Texto de ajuda personalizada */}
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-blue-800">Precisa de ajuda personalizada?</h4>
+                <p className="text-xs text-blue-600 mt-1">
+                  Nossa equipe pode preparar documentos específicos para o seu caso e aumentar suas chances de sucesso.
+                </p>
+                <button className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs py-1.5 px-3 rounded transition-colors duration-200">
+                  Falar com nosso especialista
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
