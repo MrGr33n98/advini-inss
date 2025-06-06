@@ -32,32 +32,38 @@ jobs:
           # Script que será executado na VM
           script: |
             set -e
-            echo ">>> Iniciando deploy para o diretório /home/felipe/advini-inss"
-            # Criar o diretório da aplicação se não existir
-            mkdir -p /home/felipe/advini-inss
-            cd /home/felipe/advini-inss
             
-            # Verificar se o repositório já está clonado
-            if [ -d ".git" ]; then
+            # --- CONFIGURAÇÕES ---
+            # Diretório onde a aplicação será instalada na sua VM
+            APP_DIR="/home/${{ secrets.VM_USERNAME }}/advini-inss"
+            # URL do seu repositório Git
+            REPO_URL="https://github.com/MrGr33n98/advini-inss.git"
+            
+            echo ">>> Iniciando deploy para o diretório $APP_DIR"
+            
+            # Verifica se o diretório da aplicação já existe
+            if [ -d "$APP_DIR" ]; then
+              # Se existe, é uma ATUALIZAÇÃO
               echo ">>> Aplicação existente encontrada. Atualizando..."
+              cd $APP_DIR
               git pull origin main
             else
+              # Se não existe, é o PRIMEIRO DEPLOY
               echo ">>> Aplicação não encontrada. Clonando repositório..."
-              git clone https://github.com/MrGr33n98/advini-inss.git .
+              git clone $REPO_URL $APP_DIR
+              cd $APP_DIR
             fi
             
             echo ">>> Configurando o Git..."
             git config --global user.name "Felipe Henrique"
             git config --global user.email "felipehhenriquee@gmail.com"
             
-            echo ">>> Verificando arquivo docker-compose.yml..."
-            if [ ! -f docker-compose.yml ]; then
-              echo "Erro: docker-compose.yml não encontrado!"
-              exit 1
-            fi
+            echo ">>> Verificando instalação do Docker..."
+            docker --version || (echo "Docker não está instalado!" && exit 1)
             
             echo ">>> Iniciando aplicação com Docker Compose..."
             # Use 'docker compose' em vez de 'docker-compose'
-            docker compose up -d
-            echo ">>> Deployment concluído com sucesso!"
+            docker compose up -d --build
+            
+            echo ">>> Deploy concluído com sucesso!"
 
