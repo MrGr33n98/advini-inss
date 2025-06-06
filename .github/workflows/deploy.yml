@@ -1,5 +1,7 @@
+# Nome do Workflow
 name: Deploy to VM
 
+# Gatilho: Executa sempre que houver um push na branch 'main'
 on:
   push:
     branches:
@@ -7,31 +9,54 @@ on:
 
 jobs:
   deploy:
+    # O tipo de máquina que o job vai rodar
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Faz o checkout do seu código do repositório para a máquina da Action
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Debug Secrets
-        run: |
-          echo "VM_USERNAME: ${{ secrets.VM_USERNAME }}"
-          echo "VM_IP: ${{ secrets.VM_IP }}"
-        shell: bash
-
-      - name: SSH into VM and Deploy
+      # 2. Conecta na sua VM via SSH e executa o script de deploy
+      - name: Deploy to VM
         uses: appleboy/ssh-action@v1.1.0
         with:
+          # IP da sua VM, vindo dos segredos do GitHub
           host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.VM_USERNAME }}
+          # Usuário na VM para fazer login
+          username: ${{ secrets.VM_USERNAME }} # Deve ser 'felipe'
+          # Sua chave SSH privada, vinda dos segredos do GitHub
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Porta SSH, o padrão é 22
           port: 22
+          # Script que será executado na VM
           script: |
             set -e
-            echo "Deploying to VM..."
-            cd /home/your_username/your_app
-            git config --global user.name "Your Name"
-            git config --global user.email "your_email@example.com"
-            git pull origin main
-            docker-compose up -d
-            echo "Deployment complete."
+            
+            # --- CONFIGURAÇÕES ---
+            # Diretório onde a aplicação será instalada na sua VM
+            APP_DIR="/home/felipe/advini-inss"
+            # URL do seu repositório Git
+            REPO_URL="https://github.com/MrGr33n98/advini-inss.git"
+            
+            echo ">>> Iniciando deploy para o diretório $APP_DIR"
+            
+            # Verifica se o diretório da aplicação já existe
+            if [ -d "$APP_DIR" ]; then
+              # Se existe, é uma ATUALIZAÇÃO
+              echo ">>> Aplicação existente encontrada. Atualizando..."
+              cd $APP_DIR
+              git pull origin main
+            else
+              # Se não existe, é o PRIMEIRO DEPLOY
+              echo ">>> Aplicação não encontrada. Clonando repositório..."
+              git clone $REPO_URL $APP_DIR
+              cd $APP_DIR
+            fi
+            
+            echo ">>> Iniciando aplicação com Docker Compose..."
+            # --build garante que a imagem Docker será reconstruída se houver mudanças
+            docker-compose up -d --build
+            
+            echo ">>> Deploy concluído com sucesso!"
+
